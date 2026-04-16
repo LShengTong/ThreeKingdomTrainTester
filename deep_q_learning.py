@@ -116,14 +116,17 @@ class DeepQLearningAgent:
             develops.to(self.device, dtype=torch.float32),
         )
 
-    def act(self, observation: Observation) -> int:
-        if np.random.rand() < self.epsilon:
-            return int(np.random.randint(self.num_actions))
+    def act(self, observation: Observation, use_epsilon=True, print_q=False) -> int:
+        if use_epsilon:
+            if np.random.rand() < self.epsilon:
+                return int(np.random.randint(self.num_actions))
 
         heroes, hero_mask, develops = self._obs_to_device(observation)
         with torch.no_grad():
             q_values = self.online_net(
                 heroes.unsqueeze(0), hero_mask.unsqueeze(0), develops.unsqueeze(0))
+            if print_q:
+                print(f"q_value={q_values}")
         return int(torch.argmax(q_values, dim=1).item())
 
     def remember(
@@ -178,7 +181,7 @@ class DeepQLearningAgent:
             q_next = q_next.max(dim=1, keepdim=True)[0]
             q_target = rewards + (1 - dones) * self.gamma * q_next
             if need_print:
-                print(q_pred, q_target)
+                print(f"q pred={q_pred}, q target={q_target}")
 
         loss = self.loss_fn(q_pred, q_target)
         self.optimizer.zero_grad()

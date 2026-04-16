@@ -4,32 +4,36 @@ class Environment:
 
     def __init__(self) -> None:
         self.max_heroes = 10
-        self._heroAbilities = torch.tensor(
-            [
-                [75, 74, 73, 78],
-                # [93, 102, 77, 64],
-                [83, 103, 35, 22],
-                # [88, 96, 78, 72],
-                # [98, 34, 100, 98],
-            ],
-            dtype=torch.float32,
-        )
+        self._hero_shape = (5, 4)
+        self._develop_shape = (4, 2)
+        # self._heroAbilities = torch.tensor(
+        #     [
+        #         [75, 74, 73, 78],
+        #         [93, 102, 77, 64],
+        #         [83, 103, 35, 22],
+        #         [88, 96, 78, 72],
+        #         [98, 34, 100, 98],
+        #     ],
+        #     dtype=torch.float32,
+        # )
+        self._heroAbilities = torch.empty(self._hero_shape, dtype=torch.float32)
 
-        self._develops = torch.tensor(
-            [
-                [300, 1000],
-                [300, 400],
-                [300, 400],
-                [300, 1000],
-            ],
-            dtype=torch.float32,
-        )
-        self._initial_develops = self._develops.clone()
+        # self._develops = torch.tensor(
+        #     [
+        #         [300, 1000],
+        #         [300, 400],
+        #         [300, 400],
+        #         [300, 1000],
+        #     ],
+        #     dtype=torch.float32,
+        # )
+        self._develops = torch.empty(self._develop_shape, dtype=torch.float32)
         self._working_action = torch.full(
-            (self._heroAbilities.shape[0],),
+            (self._hero_shape[0],),
             fill_value=-1,
             dtype=torch.long,
         )
+        self.reset()
 
     @property
     def action_n(self):
@@ -61,7 +65,27 @@ class Environment:
         return reward
 
     def reset(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        self._develops = self._initial_develops.clone()
+        self._heroAbilities = torch.randint(
+            low=0,
+            high=101,
+            size=self._hero_shape,
+            dtype=torch.int64,
+        ).to(torch.float32)
+
+        develop_start = torch.randint(
+            low=0,
+            high=1000,
+            size=(self._develop_shape[0],),
+            dtype=torch.int64,
+        )
+        max_delta = 1000 - develop_start
+        develop_delta = (
+            torch.floor(torch.rand(self._develop_shape[0]) * max_delta.to(torch.float32))
+            .to(torch.int64)
+            + 1
+        )
+        develop_end = develop_start + develop_delta
+        self._develops = torch.stack((develop_start, develop_end), dim=1).to(torch.float32)
         self._working_action.fill_(-1)
         return self.get_observation()
 

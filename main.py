@@ -39,7 +39,7 @@ if "__main__" == __name__:
 
     obs = env.reset()
     reward = 0
-    for i in range(2):
+    for i in range(5):
         act = agent.act(obs, False, True)
         obs, reward, _ = env.step(act)
         print(f"action={act}")

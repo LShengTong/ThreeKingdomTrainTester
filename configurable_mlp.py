@@ -28,7 +28,8 @@ class ConfigurableMLP(nn.Module):
         for idx in range(len(dims) - 1):
             in_dim, out_dim = dims[idx], dims[idx + 1]
             layers.append(nn.Linear(in_dim, out_dim))
-            layers.append(build_activation(activation))
+            if idx != len(dims) - 2:
+                layers.append(build_activation(activation))
 
         self.net = nn.Sequential(*layers)
 

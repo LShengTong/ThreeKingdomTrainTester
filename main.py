@@ -9,11 +9,11 @@ if "__main__" == __name__:
 
     agent = DeepQLearningAgent(env=env)
 
-    for step in range(5000):
+    for step in range(2000):
         develop_index = agent.act(obs)
         next_obs, reward, done = env.step(develop_index)
         agent.remember(obs, develop_index, reward, next_obs, done)
-        loss = agent.train_step(step == 4999)
+        loss = agent.train_step(step >= 1995)
 
         # print(
         #     f"step={step}, develop_index={develop_index}, "

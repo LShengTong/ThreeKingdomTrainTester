@@ -157,7 +157,7 @@ class DeepQLearningAgent:
     def train_step(self, need_print=False) -> float | None:
         # if len(self.replay) < self.batch_size:
         #     return None
-        if len(self.replay) < 1000:
+        if len(self.replay) < 300:
             return None
 
         batch = self.replay.sample(self.batch_size)

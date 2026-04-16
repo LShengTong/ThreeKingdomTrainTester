@@ -8,9 +8,9 @@ class Environment:
             [
                 [75, 74, 73, 78],
                 [93, 102, 77, 64],
-                [83, 103, 35, 22],
-                [88, 96, 78, 72],
-                [98, 34, 100, 98],
+                # [83, 103, 35, 22],
+                # [88, 96, 78, 72],
+                # [98, 34, 100, 98],
             ],
             dtype=torch.float32,
         )
@@ -94,6 +94,6 @@ class Environment:
             self._working_action.fill_(-1)
             done = True
         else:
-            reward = 1
+            reward = 0
             done = False
         return self.get_observation(), reward, done

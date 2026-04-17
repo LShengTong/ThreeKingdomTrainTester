@@ -1,11 +1,14 @@
 import torch
 
+from observation import Observation
+
+
 class Environment:
 
     def __init__(self) -> None:
         self.max_heroes = 10
-        self._hero_shape = (5, 4)
-        self._develop_shape = (4, 2)
+        self._hero_shape = (10, 4)
+        self._develop_shape = (10, 2)
         # self._heroAbilities = torch.tensor(
         #     [
         #         [75, 74, 73, 78],
@@ -29,7 +32,7 @@ class Environment:
         # )
         self._develops = torch.empty(self._develop_shape, dtype=torch.float32)
         self._working_action = torch.full(
-            (self._hero_shape[0],),
+            (self.max_heroes,),
             fill_value=-1,
             dtype=torch.long,
         )
@@ -55,7 +58,7 @@ class Environment:
             if hero_ids.numel() == 0:
                 abilities = torch.tensor(0.0, dtype=self._heroAbilities.dtype)
             else:
-                abilities = self._heroAbilities[hero_ids, i].sum()
+                abilities = self._heroAbilities[hero_ids, i % 4].sum()
             develop = self._develops[i]
             develop_delta = int(
                 (abilities / 10 + (develop[1] - develop[0]) * abilities / 3000).item()
@@ -64,7 +67,7 @@ class Environment:
             reward += float(develop_delta)
         return reward
 
-    def reset(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def reset(self) -> Observation:
         self._heroAbilities = torch.randint(
             low=0,
             high=101,
@@ -89,23 +92,26 @@ class Environment:
         self._working_action.fill_(-1)
         return self.get_observation()
 
-    def get_observation(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        idle_hero_ids = torch.where(self._working_action < 0)[0]
-        idle_heroes = self._heroAbilities[idle_hero_ids]
-        num_heroes, hero_dim = idle_heroes.shape
+    def get_observation(self) -> Observation:
+        num_heroes, hero_dim = self._heroAbilities.shape
         padded_heroes = torch.zeros((self.max_heroes, hero_dim), dtype=self._heroAbilities.dtype)
         if num_heroes > 0:
-            padded_heroes[:num_heroes] = idle_heroes
+            padded_heroes[:num_heroes] = self._heroAbilities
 
         hero_mask = torch.zeros((self.max_heroes,), dtype=torch.float32)
         hero_mask[:num_heroes] = 1.0
 
-        return padded_heroes / 100, hero_mask, self._develops.clone() / 1000
+        return Observation(
+            padded_heroes / 100,
+            hero_mask,
+            self._develops.clone() / 1000,
+            self._working_action.clone(),
+        )
 
     def step(
         self,
         develop_index: int,
-    ) -> tuple[tuple[torch.Tensor, torch.Tensor, torch.Tensor], float, bool]:
+    ) -> tuple[Observation, float, bool]:
         if develop_index < 0 or develop_index >= self._develops.shape[0]:
             raise IndexError("develop_index out of range.")
 
@@ -113,7 +119,7 @@ class Environment:
         if unassigned.numel() > 0:
             first_idle_hero = int(unassigned[0].item())
             self._working_action[first_idle_hero] = int(develop_index)
-        if torch.all(self._working_action >= 0):
+        if (self._working_action != -1).sum() >= self._hero_shape[0]:
             reward = float(self._do_action(self._working_action))
             self._working_action.fill_(-1)
             done = True

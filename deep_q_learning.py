@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import random
-from collections import deque
-from dataclasses import dataclass
-from typing import Deque, Iterable, List
+from typing import Iterable
 
 import numpy as np
 import torch
@@ -11,37 +8,9 @@ from torch import nn
 
 from environment import Environment
 from hero_develop_net import HeroDevelopNet
-
-
-Observation = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-
-
-@dataclass
-class Transition:
-    heroes: torch.Tensor
-    hero_mask: torch.Tensor
-    develops: torch.Tensor
-    action_id: int
-    reward: float
-    next_heroes: torch.Tensor
-    next_hero_mask: torch.Tensor
-    next_develops: torch.Tensor
-    done: bool
-
-
-class ReplayBuffer:
-    def __init__(self, capacity: int = 10000) -> None:
-        self.buffer: Deque[Transition] = deque(maxlen=capacity)
-
-    def add(self, transition: Transition) -> None:
-        self.buffer.append(transition)
-
-    def sample(self, batch_size: int) -> List[Transition]:
-        return random.sample(self.buffer, batch_size)
-
-    def __len__(self) -> int:
-        return len(self.buffer)
-
+from observation import Observations, Observation
+from replay_buffer import ReplayBuffer
+from transition import Transition
 
 class DeepQLearningAgent:
     """Project-specific DQN using Environment observation and HeroDevelopNet."""
@@ -49,16 +18,18 @@ class DeepQLearningAgent:
     def __init__(
         self,
         env: Environment,
-        hero_mlp_hidden: Iterable[int] = (16,),
-        hero_mlp_out: int = 16,
         hero_phi_hidden: Iterable[int] = (16,),
-        hero_phi_out: int = 16,
-        hero_out_dim: int = 16,
-        first_hero_hidden: Iterable[int] = (16,),
-        develop_mlp_hidden: Iterable[int] = (16,),
-        develop_mlp_out: int = 16,
-        develop_out_dim: int = 16,
-        fusion_hidden_dims: Iterable[int] = (32, 16),
+        hero_phi_out: int = 4,
+        hero_rho_hidden: Iterable[int] = (16,),
+        # hero_out_dim: int = 32,
+        work_phi_hidden: Iterable[int] = (16,),
+        work_phi_out: int = 4,
+        work_rho_hidden: Iterable[int] = (16,),
+        # first_hero_hidden: Iterable[int] = (32,),
+        # develop_mlp_hidden: Iterable[int] = (32,),
+        # develop_mlp_out: int = 32,
+        # develop_out_dim: int = 32,
+        fusion_hidden_dims: Iterable[int] = (128, 128, 128),
         activation: str = "relu",
         gamma: float = 0.99,
         lr: float = 1e-3,
@@ -66,10 +37,12 @@ class DeepQLearningAgent:
         epsilon_min: float = 0.05,
         epsilon_decay: float = 0.995,
         target_update_interval: int = 100,
-        batch_size: int = 64,
+        batch_size: int = 512,
         replay_capacity: int = 10000,
-        device: str = "cpu",
+        device: str | None = None,
     ) -> None:
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = torch.device(device)
         self.num_actions = int(env.action_n)
         self.gamma = gamma
@@ -82,18 +55,20 @@ class DeepQLearningAgent:
 
         net_kwargs = dict(
             hero_feature_dim=int(env.hero_dim),
-            hero_mlp_hidden=hero_mlp_hidden,
-            hero_mlp_out=hero_mlp_out,
             hero_phi_hidden=hero_phi_hidden,
             hero_phi_out=hero_phi_out,
-            hero_out_dim=hero_out_dim,
-            first_hero_hidden=first_hero_hidden,
-            develop_count=1,
+            hero_rho_hidden=hero_rho_hidden,
+            # hero_out_dim=hero_out_dim,
+            work_phi_hidden=work_phi_hidden,
+            work_phi_out=work_phi_out,
+            work_rho_hidden=work_rho_hidden,
+            # first_hero_hidden=first_hero_hidden,
+            # develop_count=env.action_n,
             develop_feature_dim=int(env.develop_dim),
             num_develops=int(env.action_n),
-            develop_mlp_hidden=develop_mlp_hidden,
-            develop_mlp_out=develop_mlp_out,
-            develop_out_dim=develop_out_dim,
+            # develop_mlp_hidden=develop_mlp_hidden,
+            # develop_mlp_out=develop_mlp_out,
+            # develop_out_dim=develop_out_dim,
             fusion_hidden_dims=fusion_hidden_dims,
             output_dim=self.num_actions,
             activation=activation,
@@ -108,78 +83,39 @@ class DeepQLearningAgent:
         self.loss_fn = nn.MSELoss()
         self.replay = ReplayBuffer(capacity=replay_capacity)
 
-    def _obs_to_device(self, observation: Observation) -> Observation:
-        heroes, hero_mask, develops = observation
-        return (
-            heroes.to(self.device, dtype=torch.float32),
-            hero_mask.to(self.device, dtype=torch.float32),
-            develops.to(self.device, dtype=torch.float32),
-        )
-
     def act(self, observation: Observation, use_epsilon=True, print_q=False) -> int:
         if use_epsilon:
             if np.random.rand() < self.epsilon:
                 return int(np.random.randint(self.num_actions))
 
-        heroes, hero_mask, develops = self._obs_to_device(observation)
+        o = Observations.stack([observation]).to(self.device, dtype=torch.float32)
         with torch.no_grad():
-            q_values = self.online_net(
-                heroes.unsqueeze(0), hero_mask.unsqueeze(0), develops.unsqueeze(0))
+            q_values = self.online_net(o)
             if print_q:
                 print(f"q_value={q_values}")
         return int(torch.argmax(q_values, dim=1).item())
 
     def remember(
         self,
-        obs: Observation,
-        action_id: int,
-        reward: float,
-        next_obs: Observation,
-        done: bool,
+        transition: Transition
     ) -> None:
-        if action_id < 0 or action_id >= self.num_actions:
+        if transition.action_id < 0 or transition.action_id >= self.num_actions:
             raise IndexError("action_id out of range.")
 
-        heroes, hero_mask, develops = obs
-        next_heroes, next_hero_mask, next_develops = next_obs
-
-        self.replay.add(
-            Transition(
-                heroes=heroes.detach().cpu(),
-                hero_mask=hero_mask.detach().cpu(),
-                develops=develops.detach().cpu(),
-                action_id=int(action_id),
-                reward=float(reward),
-                next_heroes=next_heroes.detach().cpu(),
-                next_hero_mask=next_hero_mask.detach().cpu(),
-                next_develops=next_develops.detach().cpu(),
-                done=bool(done),
-            )
-        )
+        self.replay.add(transition)
 
     def train_step(self, need_print=False) -> float | None:
         # if len(self.replay) < self.batch_size:
         #     return None
-        if len(self.replay) < 300:
+        if len(self.replay) < 1000:
             return None
 
-        batch = self.replay.sample(self.batch_size)
-        heroes = torch.stack([t.heroes for t in batch]).to(self.device)
-        hero_masks = torch.stack([t.hero_mask for t in batch], dim=0).to(self.device)
-        develops = torch.stack([t.develops for t in batch], dim=0).to(self.device)
-
-        next_heroes = torch.stack([t.next_heroes for t in batch], dim=0).to(self.device)
-        next_hero_masks = torch.stack([t.next_hero_mask for t in batch], dim=0).to(self.device)
-        next_develops = torch.stack([t.next_develops for t in batch], dim=0).to(self.device)
-
-        actions = torch.tensor([t.action_id for t in batch], dtype=torch.long, device=self.device).unsqueeze(1)
-        rewards = torch.tensor([t.reward for t in batch], dtype=torch.float32, device=self.device).unsqueeze(1)
-        dones = torch.tensor([t.done for t in batch], dtype=torch.float32, device=self.device).unsqueeze(1)
-        q_pred = self.online_net(heroes, hero_masks, develops).gather(1, actions)
+        batch_transition = self.replay.sample(self.batch_size, self.device)
+        q_pred = self.online_net(batch_transition.obs).gather(1, batch_transition.action_id)
         with torch.no_grad():
-            q_next = self.target_net(next_heroes, next_hero_masks, next_develops)
+            q_next = self.target_net(batch_transition.next_obs)
             q_next = q_next.max(dim=1, keepdim=True)[0]
-            q_target = rewards + (1 - dones) * self.gamma * q_next
+            q_target = batch_transition.reward + (1 - batch_transition.done) * self.gamma * q_next
             if need_print:
                 print(f"q pred={q_pred}, q target={q_target}")
 

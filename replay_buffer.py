@@ -1,0 +1,69 @@
+import random
+from collections import deque
+from typing import Deque, List
+
+import torch
+
+from observation import Observations
+from transition import Transition, BatchTransition
+
+
+class ReplayBuffer:
+    def __init__(self, capacity: int = 10000) -> None:
+        self.buffer: Deque[Transition] = deque(maxlen=capacity)
+
+    def add(
+        self,
+        transition: Transition,
+    ) -> None:
+        stored = Transition(
+            transition.obs.detach_cpu(),
+            int(transition.action_id),
+            float(transition.reward),
+            transition.next_obs.detach_cpu(),
+            bool(transition.done),
+            float(transition.real_return),
+        )
+
+        self.buffer.append(stored)
+
+    def sample(
+        self,
+        batch_size: int,
+        device: torch.device,
+    ) -> BatchTransition:
+        transitions = random.sample(self.buffer, batch_size)
+        return ReplayBuffer._transitions_to_batch(device, transitions)
+
+    @staticmethod
+    def _transitions_to_batch(
+        device: torch.device,
+        transitions: List[Transition],
+    ) -> BatchTransition:
+        obs = Observations.stack([t.obs for t in transitions]).to(device)
+        next_obs = Observations.stack([t.next_obs for t in transitions]).to(device)
+
+        actions = torch.tensor(
+            [t.action_id for t in transitions], dtype=torch.long, device=device
+        ).unsqueeze(1)
+        rewards = torch.tensor(
+            [t.reward for t in transitions], dtype=torch.float32, device=device
+        ).unsqueeze(1)
+        dones = torch.tensor(
+            [t.done for t in transitions], dtype=torch.float32, device=device
+        ).unsqueeze(1)
+        real_returns = torch.tensor(
+            [t.real_return for t in transitions], dtype=torch.float32, device=device
+        ).unsqueeze(1)
+
+        return BatchTransition(
+            obs,
+            actions,
+            rewards,
+            next_obs,
+            dones,
+            real_returns,
+        )
+
+    def __len__(self) -> int:
+        return len(self.buffer)

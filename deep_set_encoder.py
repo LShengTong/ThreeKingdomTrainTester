@@ -21,6 +21,7 @@ class DeepSetEncoder(nn.Module):
         element_dim: int,
         phi_hidden_dims: Iterable[int],
         phi_out_dim: int,
+        rho_hidden_dims: Iterable[int],
         out_dim: int,
         activation: str,
     ) -> None:
@@ -34,7 +35,7 @@ class DeepSetEncoder(nn.Module):
         self.rho = ConfigurableMLP(
             input_dim=phi_out_dim,
             output_dim=out_dim,
-            hidden_dims=[],
+            hidden_dims=rho_hidden_dims,
             activation=activation,
         )
 

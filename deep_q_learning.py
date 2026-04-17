@@ -18,18 +18,18 @@ class DeepQLearningAgent:
     def __init__(
         self,
         env: Environment,
-        hero_phi_hidden: Iterable[int] = (16,),
+        hero_phi_hidden: Iterable[int] = (8,),
         hero_phi_out: int = 4,
-        hero_rho_hidden: Iterable[int] = (16,),
+        hero_rho_hidden: Iterable[int] = (8,),
         # hero_out_dim: int = 32,
-        work_phi_hidden: Iterable[int] = (16,),
+        work_phi_hidden: Iterable[int] = (8,),
         work_phi_out: int = 4,
-        work_rho_hidden: Iterable[int] = (16,),
+        work_rho_hidden: Iterable[int] = (8,),
         # first_hero_hidden: Iterable[int] = (32,),
         # develop_mlp_hidden: Iterable[int] = (32,),
         # develop_mlp_out: int = 32,
         # develop_out_dim: int = 32,
-        fusion_hidden_dims: Iterable[int] = (128, 128, 128),
+        fusion_hidden_dims: Iterable[int] = (64, 64),
         activation: str = "relu",
         gamma: float = 0.99,
         lr: float = 1e-3,
@@ -37,12 +37,11 @@ class DeepQLearningAgent:
         epsilon_min: float = 0.05,
         epsilon_decay: float = 0.995,
         target_update_interval: int = 100,
-        batch_size: int = 512,
+        batch_size: int = 256,
         replay_capacity: int = 10000,
-        device: str | None = None,
     ) -> None:
-        if device is None:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"using device: {device}")
         self.device = torch.device(device)
         self.num_actions = int(env.action_n)
         self.gamma = gamma

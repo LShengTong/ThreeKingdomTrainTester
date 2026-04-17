@@ -7,8 +7,8 @@ class Environment:
 
     def __init__(self) -> None:
         self.max_heroes = 10
-        self._hero_shape = (10, 4)
-        self._develop_shape = (10, 2)
+        self._hero_shape = (1, 4)
+        self._develop_shape = (20, 2)
         # self._heroAbilities = torch.tensor(
         #     [
         #         [75, 74, 73, 78],

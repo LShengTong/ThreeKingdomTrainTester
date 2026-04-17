@@ -10,9 +10,7 @@ from transition import Transition
 
 if "__main__" == __name__:
     use_writer = False
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    train_every = 8
-    print(f"using device: {device}")
+    train_every = 4
 
     env = Environment()
     obs = env.reset()
@@ -22,10 +20,10 @@ if "__main__" == __name__:
     else:
         writer = None
 
-    agent = DeepQLearningAgent(env=env, device=device)
+    agent = DeepQLearningAgent(env=env)
     training_bias_calculator = BiasCalculator(agent.gamma, agent.online_net, agent.device)
 
-    for step in range(50000):
+    for step in range(10000):
         if step % 100 == 0:
             print(f"step={step}")
 
@@ -70,19 +68,19 @@ if "__main__" == __name__:
     env1.reset()
     env2 = copy.deepcopy(env1)
 
-    real_rewards = np.zeros((env.action_n, env.action_n))
-    for i in range(env1.action_n):
-        envi = copy.deepcopy(env1)
-        _, _, _ = envi.step(i)
-        for j in range(env1.action_n):
-            _, reward, _ = copy.deepcopy(envi).step(j)
-            real_rewards[i, j] = reward
-    print(f"real rewards={real_rewards}")
+    # real_rewards = np.zeros((env.action_n, env.action_n))
+    # for i in range(env1.action_n):
+    #     envi = copy.deepcopy(env1)
+    #     _, _, _ = envi.step(i)
+    #     for j in range(env1.action_n):
+    #         _, reward, _ = copy.deepcopy(envi).step(j)
+    #         real_rewards[i, j] = reward
+    # print(f"real rewards={real_rewards}")
 
     reward = 0
     done = False
     while not done:
-        act = int(torch.randint(0, 4, (1,))[0])
+        act = int(torch.randint(0, env.action_n, (1,))[0])
         _, reward, done = env1.step(act)
         print(f"random action={act}")
     print(f"random reward={reward}")

@@ -1,14 +1,25 @@
-from bias_calculator import BiasCalculator
-from deep_q_learning import DeepQLearningAgent
-from environment import Environment
-from torch.utils.tensorboard import SummaryWriter
+import argparse
 import copy
+
 import numpy as np
 import torch
 
+from bias_calculator import BiasCalculator
+from deep_q_learning import DeepQLearningAgent
+from environment import Environment
+from ppo import PPOAgent
 from transition import Transition
 
 if "__main__" == __name__:
+    parser = argparse.ArgumentParser(description="Train with DQN or PPO.")
+    parser.add_argument(
+        "--algorithm",
+        choices=("dqn", "ppo"),
+        default="dqn",
+        help="RL algorithm: off-policy DQN or on-policy PPO.",
+    )
+    args = parser.parse_args()
+
     use_writer = False
     train_every = 4
 
@@ -16,23 +27,43 @@ if "__main__" == __name__:
     obs = env.reset()
 
     if use_writer:
-        writer = SummaryWriter(log_dir="runs/hero_develop_dqn")
+        from torch.utils.tensorboard import SummaryWriter
+
+        log_dir = "runs/hero_develop_dqn" if args.algorithm == "dqn" else "runs/hero_develop_ppo"
+        writer = SummaryWriter(log_dir=log_dir)
     else:
         writer = None
 
-    agent = DeepQLearningAgent(env=env)
-    training_bias_calculator = BiasCalculator(agent.gamma, agent.online_net, agent.device)
+    if args.algorithm == "dqn":
+        agent = DeepQLearningAgent(env=env)
+        training_bias_calculator = BiasCalculator(
+            agent.gamma, agent.online_net, agent.device, prediction="q"
+        )
+    else:
+        agent = PPOAgent(env=env)
+        training_bias_calculator = BiasCalculator(
+            agent.gamma, agent.online_net, agent.device, prediction="value"
+        )
 
     for step in range(10000):
         if step % 100 == 0:
             print(f"step={step}")
 
-        develop_index = agent.act(obs)
-        next_obs, reward, done = env.step(develop_index)
-        transition = Transition(obs, develop_index, reward, next_obs, done, 0)
-        agent.remember(transition)
-        loss = None
-        if step % train_every == 0:
+        if args.algorithm == "dqn":
+            develop_index = agent.act(obs)
+            next_obs, reward, done = env.step(develop_index)
+            transition = Transition(obs, develop_index, reward, next_obs, done, 0)
+            agent.remember(transition)
+            loss = None
+            if step % train_every == 0:
+                loss = agent.train_step()
+        else:
+            develop_index, log_prob, value = agent.act_with_details(obs, stochastic=True)
+            next_obs, reward, done = env.step(develop_index)
+            agent.remember_from_env_step(
+                obs, next_obs, develop_index, log_prob, reward, done, value
+            )
+            transition = Transition(obs, develop_index, reward, next_obs, done, 0)
             loss = agent.train_step()
 
         training_bias_calculator.add(transition)
@@ -51,11 +82,13 @@ if "__main__" == __name__:
 
     training_bias_calculator.print_bias()
 
-    test_bias_calculator = BiasCalculator(agent.gamma, agent.online_net, agent.device)
+    bias_pred = "q" if args.algorithm == "dqn" else "value"
+    test_bias_calculator = BiasCalculator(
+        agent.gamma, agent.online_net, agent.device, prediction=bias_pred
+    )
     obs = env.reset()
     for _ in range(2000):
-        ep: list[Transition] = []
-        develop_index = agent.act(obs)
+        develop_index = agent.act(obs, False)
         next_obs, reward, done = env.step(develop_index)
         transition = Transition(obs, develop_index, reward, next_obs, done, 0)
         test_bias_calculator.add(transition)

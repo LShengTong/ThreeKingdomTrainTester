@@ -4,51 +4,22 @@ from observation import Observation
 
 
 class Environment:
+    max_heroes = 20
+    hero_dim = 4
+    develop_shape = (20, 2)
 
     def __init__(self) -> None:
-        self.max_heroes = 10
-        self._hero_shape = (1, 4)
-        self._develop_shape = (20, 2)
-        # self._heroAbilities = torch.tensor(
-        #     [
-        #         [75, 74, 73, 78],
-        #         [93, 102, 77, 64],
-        #         [83, 103, 35, 22],
-        #         [88, 96, 78, 72],
-        #         [98, 34, 100, 98],
-        #     ],
-        #     dtype=torch.float32,
-        # )
-        self._heroAbilities = torch.empty(self._hero_shape, dtype=torch.float32)
-
-        # self._develops = torch.tensor(
-        #     [
-        #         [300, 1000],
-        #         [300, 400],
-        #         [300, 400],
-        #         [300, 1000],
-        #     ],
-        #     dtype=torch.float32,
-        # )
-        self._develops = torch.empty(self._develop_shape, dtype=torch.float32)
+        self._heroAbilities = torch.empty(
+            (Environment.max_heroes, Environment.hero_dim),
+            dtype=torch.float32
+        )
+        self._develops = torch.empty(Environment.develop_shape, dtype=torch.float32)
         self._working_action = torch.full(
-            (self.max_heroes,),
+            (Environment.max_heroes,),
             fill_value=-1,
             dtype=torch.long,
         )
         self.reset()
-
-    @property
-    def action_n(self):
-        return self._develops.shape[0]
-
-    @property
-    def hero_dim(self):
-        return self._heroAbilities.shape[1]
-
-    @property
-    def develop_dim(self):
-        return self._develops.shape[1]
 
     def _do_action(self, action: torch.Tensor) -> float:
         action = action[:self._heroAbilities.shape[0]]
@@ -63,33 +34,39 @@ class Environment:
             develop_delta = int(
                 (abilities / 10 + (develop[1] - develop[0]) * abilities / 3000).item()
             )
+            develop_delta = min(develop_delta, self._develops[i, 1] - self._develops[i, 0])
             self._develops[i, 0] += develop_delta
             reward += float(develop_delta)
         return reward
 
     def reset(self) -> Observation:
+        hero_count = int(torch.randint(1, Environment.max_heroes, (1,))[0])
         self._heroAbilities = torch.randint(
             low=0,
             high=101,
-            size=self._hero_shape,
+            size=(hero_count, Environment.hero_dim),
             dtype=torch.int64,
         ).to(torch.float32)
 
         develop_start = torch.randint(
             low=0,
             high=1000,
-            size=(self._develop_shape[0],),
+            size=(Environment.develop_shape[0],),
             dtype=torch.int64,
         )
         max_delta = 1000 - develop_start
         develop_delta = (
-            torch.floor(torch.rand(self._develop_shape[0]) * max_delta.to(torch.float32))
+            torch.floor(torch.rand(Environment.develop_shape[0]) * max_delta.to(torch.float32))
             .to(torch.int64)
             + 1
         )
         develop_end = develop_start + develop_delta
         self._develops = torch.stack((develop_start, develop_end), dim=1).to(torch.float32)
-        self._working_action.fill_(-1)
+        self._working_action = torch.full(
+            (hero_count,),
+            fill_value=-1,
+            dtype=torch.long,
+        )
         return self.get_observation()
 
     def get_observation(self) -> Observation:
@@ -102,9 +79,8 @@ class Environment:
         hero_mask[:num_heroes] = 1.0
 
         return Observation(
-            padded_heroes / 100,
-            hero_mask,
-            self._develops.clone() / 1000,
+            self._heroAbilities / 100,
+            self._develops / 1000,
             self._working_action.clone(),
         )
 
@@ -119,7 +95,7 @@ class Environment:
         if unassigned.numel() > 0:
             first_idle_hero = int(unassigned[0].item())
             self._working_action[first_idle_hero] = int(develop_index)
-        if (self._working_action != -1).sum() >= self._hero_shape[0]:
+        if (self._working_action != -1).sum() >= self._heroAbilities.shape[0]:
             reward = float(self._do_action(self._working_action))
             self._working_action.fill_(-1)
             done = True

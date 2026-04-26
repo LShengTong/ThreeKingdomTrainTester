@@ -10,16 +10,13 @@ class BiasCalculator:
         self,
         gamma: float,
         online_net: nn.Module,
-        device: torch.device,
-        *,
-        prediction: str = "q",
+        device: torch.device
     ) -> None:
         self.sample_set = ReplayBuffer(capacity=1000000)
         self.episode_steps: list[Transition] = []
         self.gamma = gamma
         self.online_net = online_net
         self.device = device
-        self.prediction = prediction
 
     def add(self, transition: Transition):
         self.episode_steps.append(transition)
@@ -44,12 +41,7 @@ class BiasCalculator:
         batch_transition = self.sample_set.sample(len(self.sample_set), self.device)
         self.online_net.eval()
         with torch.no_grad():
-            if self.prediction == "q":
-                pred = self.online_net(batch_transition.obs).gather(1, batch_transition.action_id)
-            elif self.prediction == "value":
-                pred = self.online_net(batch_transition.obs)
-            else:
-                raise ValueError(f"Unknown prediction mode: {self.prediction}")
+            pred = self.online_net(batch_transition.obs).gather(1, batch_transition.action_id)
             bias = pred - batch_transition.real_return
 
         print(

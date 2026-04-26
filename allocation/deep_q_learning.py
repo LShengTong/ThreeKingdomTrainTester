@@ -6,9 +6,10 @@ import numpy as np
 import torch
 from torch import nn
 
+from allocation.net_observation import NetObservation, NetObservations
 from environment import Environment
 from hero_develop_net import HeroDevelopNet
-from observation import Observations, Observation
+from observation import Observation
 from replay_buffer import ReplayBuffer
 from transition import Transition
 
@@ -17,19 +18,18 @@ class DeepQLearningAgent:
 
     def __init__(
         self,
-        env: Environment,
-        hero_phi_hidden: Iterable[int] = (8,),
+        hero_phi_hidden: Iterable[int] = (),
         hero_phi_out: int = 4,
-        hero_rho_hidden: Iterable[int] = (8,),
+        hero_rho_hidden: Iterable[int] = (),
         # hero_out_dim: int = 32,
-        work_phi_hidden: Iterable[int] = (8,),
+        work_phi_hidden: Iterable[int] = (),
         work_phi_out: int = 4,
-        work_rho_hidden: Iterable[int] = (8,),
+        work_rho_hidden: Iterable[int] = (),
         # first_hero_hidden: Iterable[int] = (32,),
         # develop_mlp_hidden: Iterable[int] = (32,),
         # develop_mlp_out: int = 32,
         # develop_out_dim: int = 32,
-        fusion_hidden_dims: Iterable[int] = (64, 64),
+        fusion_hidden_dims: Iterable[int] = (64, 64, 64),
         activation: str = "relu",
         gamma: float = 0.99,
         lr: float = 1e-3,
@@ -37,13 +37,20 @@ class DeepQLearningAgent:
         epsilon_min: float = 0.05,
         epsilon_decay: float = 0.995,
         target_update_interval: int = 100,
-        batch_size: int = 256,
+        batch_size: int = 1024,
         replay_capacity: int = 10000,
+        device: str = "",
     ) -> None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        if device == "":
+            if torch.cuda.is_available():
+                device = "cuda"
+            elif torch.mps.is_available():
+                device = "mps"
+            else:
+                device = "cpu"
         print(f"using device: {device}")
         self.device = torch.device(device)
-        self.num_actions = int(env.action_n)
+        self.num_actions = int(Environment.develop_shape[0])
         self.gamma = gamma
         self.batch_size = batch_size
         self.epsilon = epsilon
@@ -53,7 +60,7 @@ class DeepQLearningAgent:
         self.train_steps = 0
 
         net_kwargs = dict(
-            hero_feature_dim=int(env.hero_dim),
+            hero_feature_dim=int(Environment.hero_dim),
             hero_phi_hidden=hero_phi_hidden,
             hero_phi_out=hero_phi_out,
             hero_rho_hidden=hero_rho_hidden,
@@ -63,13 +70,12 @@ class DeepQLearningAgent:
             work_rho_hidden=work_rho_hidden,
             # first_hero_hidden=first_hero_hidden,
             # develop_count=env.action_n,
-            develop_feature_dim=int(env.develop_dim),
-            num_develops=int(env.action_n),
+            develop_feature_dim=int(Environment.develop_shape[1]),
+            num_develops=int(Environment.develop_shape[0]),
             # develop_mlp_hidden=develop_mlp_hidden,
             # develop_mlp_out=develop_mlp_out,
             # develop_out_dim=develop_out_dim,
             fusion_hidden_dims=fusion_hidden_dims,
-            output_dim=self.num_actions,
             activation=activation,
         )
 
@@ -87,7 +93,9 @@ class DeepQLearningAgent:
             if np.random.rand() < self.epsilon:
                 return int(np.random.randint(self.num_actions))
 
-        o = Observations.stack([observation]).to(self.device, dtype=torch.float32)
+        o = NetObservations.from_observations(
+            [NetObservation.from_observation(observation)]
+        ).to(self.device)
         with torch.no_grad():
             q_values = self.online_net(o)
             if print_q:
@@ -106,7 +114,7 @@ class DeepQLearningAgent:
     def train_step(self, need_print=False) -> float | None:
         # if len(self.replay) < self.batch_size:
         #     return None
-        if len(self.replay) < 1000:
+        if len(self.replay) < 1024:
             return None
 
         batch_transition = self.replay.sample(self.batch_size, self.device)

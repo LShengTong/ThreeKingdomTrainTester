@@ -3,9 +3,9 @@ from typing import Iterable
 import torch
 from torch import nn
 
+from allocation.net_observation import NetObservations
 from configurable_mlp import ConfigurableMLP
 from deep_set_encoder import DeepSetEncoder
-from observation import Observations
 
 
 class HeroDevelopNet(nn.Module):
@@ -32,7 +32,6 @@ class HeroDevelopNet(nn.Module):
         # develop_out_dim: int,
 
         fusion_hidden_dims: Iterable[int],
-        output_dim: int,
         activation: str,
     ) -> None:
         super().__init__()
@@ -44,12 +43,13 @@ class HeroDevelopNet(nn.Module):
             out_dim=hero_feature_dim,
             activation=activation,
         )
+        # Per develop index a: only hero scalar at channel (a % hero_feature_dim), matching env i % 4.
         self.working_deepset = DeepSetEncoder(
-            element_dim=hero_feature_dim + develop_feature_dim,
+            element_dim=1,
             phi_hidden_dims=work_phi_hidden,
             rho_hidden_dims=work_rho_hidden,
             phi_out_dim=work_phi_out,
-            out_dim=hero_feature_dim + develop_feature_dim,
+            out_dim=1,
             activation=activation,
         )
         # self.first_hero_mlp = ConfigurableMLP(
@@ -70,43 +70,34 @@ class HeroDevelopNet(nn.Module):
         #     output_dim=develop_out_dim,
         #     activation=activation,
         # )
+        # hero side: [pool deepset | curr scalar at (d % H) per develop d] + develop features
+        # (raw env columns plus [1]-[0] appended in forward) + work deepset
         self.fusion = ConfigurableMLP(
             input_dim=hero_feature_dim +
-                      hero_feature_dim +
-                      num_develops * develop_feature_dim +
-                      hero_feature_dim + develop_feature_dim,
+                      1 +
+                      1 +
+                      1,
             hidden_dims=fusion_hidden_dims,
-            output_dim=output_dim,
+            output_dim=1,
             activation=activation,
         )
+        self.num_develops = num_develops
+        self.hero_feature_dim = hero_feature_dim
 
     def forward(
         self,
-        obs: Observations,
+        obs: NetObservations,
     ) -> torch.Tensor:
-        working_count = (obs.working_assignments != -1).sum(dim=1)
+        shape = (obs.todo_heroes.shape[0], obs.develops.shape[1])
+        heroes_pool = self.hero_deepset.forward(obs.todo_heroes, obs.todo_hero_mask)
+        heroes_pool = heroes_pool.unsqueeze(1).repeat(1, obs.develops.shape[1], 1)
+        working_heroes = obs.working_heroes.reshape(-1, obs.working_heroes.shape[-2], obs.working_heroes.shape[-1])
+        working_heroes_mask = obs.working_heroes_mask.reshape(-1, obs.working_heroes_mask.shape[-1])
+        working_heroes_pool = self.working_deepset.forward(working_heroes, working_heroes_mask)
+        working_heroes_pool = working_heroes_pool.reshape(shape[0], shape[1], -1)
+        fusion_in = torch.cat(
+            [heroes_pool, obs.curr_hero, obs.develops, working_heroes_pool], dim=-1)
 
-        batch_size, num_heroes = obs.hero_mask.shape
-        pos = torch.arange(num_heroes, device=obs.hero_mask.device).unsqueeze(0)
-        cut = (working_count + 1).unsqueeze(1)
-        hero_masks = obs.hero_mask * (pos >= cut).to(obs.hero_mask.dtype)
-        hero_vec = self.hero_deepset(obs.heroes, hero_masks)
-
-        # first_hero_vec = self.first_hero_mlp(heroes[:, 0, :])
-        batch_idx = torch.arange(batch_size, device=obs.heroes.device)
-        first_hero_vec = obs.heroes[batch_idx, working_count, :]
-
-        batch_size, num_develops, develop_dim = obs.develops.shape
-        # develop_feat = self.develop_feature_mlp(develops.reshape(-1, develop_dim))
-        # develop_feat = develop_feat.reshape(batch_size, -1)
-        # develop_vec = self.develop_rho(develop_feat)
-        develop_vec = obs.develops.reshape(batch_size, -1)
-
-        working_mask = (obs.working_assignments >= 0).to(obs.hero_mask.dtype)
-        safe_working_assignments = obs.working_assignments.clamp(min=0)
-        batch_idx = torch.arange(batch_size, device=obs.develops.device).unsqueeze(1).expand(-1, num_heroes)
-        assigned_develop_vec = obs.develops[batch_idx, safe_working_assignments, :]
-        working_features = torch.cat([obs.heroes, assigned_develop_vec], dim=-1)
-        working_vec = self.working_deepset(working_features, working_mask)
-
-        return self.fusion(torch.cat([hero_vec, develop_vec, first_hero_vec, working_vec], dim=-1))
+        flat = fusion_in.reshape(shape[0] * shape[1], -1)
+        out = self.fusion(flat).view(shape[0], shape[1])
+        return out

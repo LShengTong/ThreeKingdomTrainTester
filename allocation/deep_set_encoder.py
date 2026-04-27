@@ -3,8 +3,8 @@ from typing import Iterable, List
 import torch
 from torch import nn
 
-from activation import build_activation
-from configurable_mlp import ConfigurableMLP
+from allocation.activation import build_activation
+from allocation.configurable_mlp import ConfigurableMLP
 
 
 class DeepSetEncoder(nn.Module):

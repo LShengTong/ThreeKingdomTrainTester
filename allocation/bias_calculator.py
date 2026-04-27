@@ -1,24 +1,24 @@
 import torch
-from torch import nn
+from stable_baselines3.dqn.policies import DQNPolicy
 
-from replay_buffer import ReplayBuffer
-from transition import Transition
+from allocation.replay_buffer import ReplayBuffer
+from allocation.transition import NetTransition
 
 
 class BiasCalculator:
     def __init__(
         self,
         gamma: float,
-        online_net: nn.Module,
+        policy: DQNPolicy,
         device: torch.device
     ) -> None:
         self.sample_set = ReplayBuffer(capacity=1000000)
-        self.episode_steps: list[Transition] = []
+        self.episode_steps: list[NetTransition] = []
         self.gamma = gamma
-        self.online_net = online_net
+        self.policy = policy
         self.device = device
 
-    def add(self, transition: Transition):
+    def add(self, transition: NetTransition):
         self.episode_steps.append(transition)
         if transition.done:
             returns = self._discounted_episode_returns()
@@ -38,10 +38,13 @@ class BiasCalculator:
         return list(reversed(backward))
 
     def print_bias(self):
+        if len(self.sample_set) == 0:
+            print("sample set stats: samples=0")
+            return
         batch_transition = self.sample_set.sample(len(self.sample_set), self.device)
-        self.online_net.eval()
+        self.policy.eval()
         with torch.no_grad():
-            pred = self.online_net(batch_transition.obs).gather(1, batch_transition.action_id)
+            pred = self.policy.q_net(batch_transition.obs.to_dict()).gather(1, batch_transition.action_id)
             bias = pred - batch_transition.real_return
 
         print(

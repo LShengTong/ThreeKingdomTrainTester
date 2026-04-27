@@ -1,8 +1,12 @@
+from allocation.config import DEFAULT_AGENT_CONFIG
+from allocation.deep_q_learning import DeepQLearningAgent
+from allocation.ppo_learning import ProximalPolicyOptimizationAgent
 from allocation.tester import Tester
-from allocation.trainer import Trainer
-from deep_q_learning import DeepQLearningAgent
 
 if "__main__" == __name__:
-    agent = DeepQLearningAgent()
-    Trainer(agent=agent).train()
+    if DEFAULT_AGENT_CONFIG.algorithm == "ppo":
+        agent = ProximalPolicyOptimizationAgent(config=DEFAULT_AGENT_CONFIG)
+    else:
+        agent = DeepQLearningAgent(config=DEFAULT_AGENT_CONFIG)
+    agent.learn()
     Tester(agent=agent).test()

@@ -4,8 +4,8 @@ from typing import Deque, List
 
 import torch
 
-from allocation.net_observation import NetObservation, NetObservations
-from transition import Transition, BatchTransition, NetTransition
+from allocation.net_observation import NetObservations
+from allocation.transition import BatchTransition, NetTransition
 
 
 class ReplayBuffer:
@@ -14,19 +14,9 @@ class ReplayBuffer:
 
     def add(
         self,
-        transition: Transition,
+        transition: NetTransition,
     ) -> None:
-        """Optionally run develop-span + dtype on ``preprocess_device`` (e.g. CUDA) before CPU storage."""
-        stored = NetTransition(
-            NetObservation.from_observation(transition.obs).detach_cpu(),
-            int(transition.action_id),
-            float(transition.reward),
-            NetObservation.from_observation(transition.next_obs).detach_cpu(),
-            bool(transition.done),
-            float(transition.real_return),
-        )
-
-        self.buffer.append(stored)
+        self.buffer.append(transition)
 
     def sample(
         self,
@@ -41,8 +31,8 @@ class ReplayBuffer:
         device: torch.device,
         transitions: List[NetTransition],
     ) -> BatchTransition:
-        obs = NetObservations.from_observations([t.obs for t in transitions]).to(device)
-        next_obs = NetObservations.from_observations([t.next_obs for t in transitions]).to(device)
+        obs = NetObservations.from_observations([t.obs for t in transitions], device)
+        next_obs = NetObservations.from_observations([t.next_obs for t in transitions], device)
 
         actions = torch.tensor(
             [t.action_id for t in transitions], dtype=torch.long, device=device

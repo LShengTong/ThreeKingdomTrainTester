@@ -5,7 +5,7 @@ from typing import Iterable, List
 import torch
 from torch import nn
 
-from activation import build_activation
+from allocation.activation import build_activation
 
 class ConfigurableMLP(nn.Module):
     """A generic MLP with configurable depth and common blocks."""

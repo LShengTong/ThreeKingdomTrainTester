@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import torch
 from stable_baselines3 import DQN
 
 from allocation.allocation_gym_env import AllocationGymEnv

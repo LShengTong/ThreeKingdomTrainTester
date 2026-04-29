@@ -42,18 +42,24 @@ class AllocationGymEnv(Env[dict[str, np.ndarray], int]):
                     shape=(Environment.develop_shape[0], 1),
                     dtype=np.float32,
                 ),
+                # "working_heroes": spaces.Box(
+                #     low=0.0,
+                #     high=1.0,
+                #     shape=(Environment.develop_shape[0], Environment.max_heroes, 1),
+                #     dtype=np.float32,
+                # ),
                 "working_heroes": spaces.Box(
                     low=0.0,
                     high=1.0,
-                    shape=(Environment.develop_shape[0], Environment.max_heroes, 1),
+                    shape=(Environment.develop_shape[0], 1),
                     dtype=np.float32,
                 ),
-                "working_heroes_mask": spaces.Box(
-                    low=0.0,
-                    high=1.0,
-                    shape=(Environment.develop_shape[0], Environment.max_heroes),
-                    dtype=np.float32,
-                ),
+                # "working_heroes_mask": spaces.Box(
+                #     low=0.0,
+                #     high=1.0,
+                #     shape=(Environment.develop_shape[0], Environment.max_heroes),
+                #     dtype=np.float32,
+                # ),
             }
         )
         self.action_space = spaces.Discrete(int(Environment.develop_shape[0]))

@@ -1,9 +1,8 @@
-from typing import Iterable, List
+from typing import Iterable
 
 import torch
 from torch import nn
 
-from allocation.activation import build_activation
 from allocation.configurable_mlp import ConfigurableMLP
 
 
@@ -26,18 +25,19 @@ class DeepSetEncoder(nn.Module):
         activation: str,
     ) -> None:
         super().__init__()
-        phi_layers: List[int] = [element_dim] + list(phi_hidden_dims) + [phi_out_dim]
-        phi_seq: List[nn.Module] = []
-        for i in range(len(phi_layers) - 1):
-            phi_seq.append(nn.Linear(phi_layers[i], phi_layers[i + 1]))
-            phi_seq.append(build_activation(activation))
-        self.phi = nn.Sequential(*phi_seq)
+        self.phi = ConfigurableMLP(
+            input_dim=element_dim,
+            output_dim=phi_out_dim,
+            hidden_dims=phi_hidden_dims,
+            activation=activation,
+        )
         self.rho = ConfigurableMLP(
             input_dim=phi_out_dim,
             output_dim=out_dim,
             hidden_dims=rho_hidden_dims,
             activation=activation,
         )
+        self.relu = nn.ReLU()
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         if x.ndim != 3:
@@ -48,4 +48,5 @@ class DeepSetEncoder(nn.Module):
         m = mask.to(dtype=phi_x.dtype, device=phi_x.device).unsqueeze(-1)
         phi_x = phi_x * m
         pooled = phi_x.sum(dim=1)
-        return self.rho(pooled)
+        rho = self.rho(pooled)
+        return self.relu(rho)

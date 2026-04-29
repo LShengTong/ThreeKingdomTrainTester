@@ -9,9 +9,9 @@ class NetworkConfig:
     hero_phi_hidden: tuple[int, ...] = ()
     hero_phi_out: int = 4
     hero_rho_hidden: tuple[int, ...] = ()
-    work_phi_hidden: tuple[int, ...] = ()
-    work_phi_out: int = 4
-    work_rho_hidden: tuple[int, ...] = ()
+    # work_phi_hidden: tuple[int, ...] = ()
+    # work_phi_out: int = 4
+    # work_rho_hidden: tuple[int, ...] = ()
     fusion_hidden_dims: tuple[int, ...] = (128, 128)
     activation: str = "relu"
 

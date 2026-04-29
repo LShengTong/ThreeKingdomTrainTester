@@ -1,5 +1,5 @@
 import copy
-from typing import Any, Protocol
+from typing import Any, List, Protocol
 
 import numpy as np
 import torch
@@ -25,8 +25,8 @@ class Tester:
         self.agent = agent
 
     def test(self):
-        envs = []
-        for i in range(200):
+        envs: List[Environment] = []
+        for _ in range(200):
             envs.append(Environment())
 
         bias_calculator = None
@@ -43,7 +43,7 @@ class Tester:
             done = False
             while not done:
                 act = int(torch.randint(0, Environment.develop_shape[0], (1,))[0])
-                _, reward, done = env.step(act)
+                _, reward, done = env.step(act, reward_shaping=False)
                 random_rewards += reward
         print(f"random reward={random_rewards / len(envs)}")
 
@@ -54,7 +54,7 @@ class Tester:
             obs = env.get_observation()
             while not done:
                 develop_index = self.agent.act(obs, deterministic=True)
-                next_obs, reward, done = env.step(develop_index)
+                next_obs, reward, done = env.step(develop_index, reward_shaping=False)
                 if bias_calculator is not None:
                     bias_calculator.add(
                         NetTransition(
@@ -77,18 +77,18 @@ class Tester:
         #     best_rewards += self._best_reward_by_action_search(env)
         # print(f"best reward={best_rewards / len(envs)}")
 
-    @staticmethod
-    def _best_reward_by_action_search(env: Environment) -> float:
-        num_develops = int(env.develop_shape[0])
-        max_reward = -np.inf
-        def dfs(dfs_env: Environment):
-            nonlocal max_reward
-            for i in range(num_develops):
-                env_copy = copy.deepcopy(dfs_env)
-                _, reward, done = env_copy.step(i)
-                if done:
-                    max_reward = max(max_reward, reward)
-                    continue
-                dfs(env_copy)
-        dfs(env)
-        return max_reward
+    # @staticmethod
+    # def _best_reward_by_action_search(env: Environment) -> float:
+    #     num_develops = int(env.develop_shape[0])
+    #     max_reward = -np.inf
+    #     def dfs(dfs_env: Environment):
+    #         nonlocal max_reward
+    #         for i in range(num_develops):
+    #             env_copy = copy.deepcopy(dfs_env)
+    #             _, reward, done = env_copy.step(i, reward_shaping=False)
+    #             if done:
+    #                 max_reward = max(max_reward, reward)
+    #                 continue
+    #             dfs(env_copy)
+    #     dfs(env)
+    #     return max_reward

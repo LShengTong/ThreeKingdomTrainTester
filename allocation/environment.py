@@ -27,7 +27,7 @@ class Environment:
         return self._heroAbilities.shape[0]
 
     def _calc_develop_delta(self) -> np.ndarray:
-        develop_abilities = np.zeros((self._develops.shape[0],), dtype=np.int64)
+        develop_abilities = np.zeros((self._develops.shape[0],), dtype=np.float64)
         for i in range(len(self._working_action)):
             working_action = self._working_action[i]
             if working_action < 0:
@@ -79,6 +79,7 @@ class Environment:
     def step(
         self,
         develop_index: int,
+        reward_shaping: bool = True
     ) -> tuple[Observation, float, bool]:
         if develop_index < 0 or develop_index >= self._develops.shape[0]:
             raise IndexError("develop_index out of range.")
@@ -92,8 +93,11 @@ class Environment:
             self._working_action.fill(-1)
             done = True
         else:
-            ability = self._heroAbilities[int(unassigned[0]), develop_index % 4]
-            develop_delta = self._develops[develop_index][1] - self._develops[develop_index][0]
-            reward = ability / 10 + develop_delta * ability / 3000
+            if reward_shaping:
+                ability = self._heroAbilities[int(unassigned[0]), develop_index % 4]
+                develop_delta = self._develops[develop_index][1] - self._develops[develop_index][0]
+                reward = ability / 10 + develop_delta * ability / 3000
+            else:
+                reward = 0
             done = False
         return self.get_observation(), reward, done

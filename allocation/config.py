@@ -10,9 +10,6 @@ class NetworkConfig:
     hero_phi_out: int = 64
     hero_rho_hidden: tuple[int, ...] = ()
     hero_rho_out:int = 16
-    # work_phi_hidden: tuple[int, ...] = ()
-    # work_phi_out: int = 4
-    # work_rho_hidden: tuple[int, ...] = ()
     fusion_hidden_dims: tuple[int, ...] = (128, 128)
     activation: str = "relu"
 
@@ -48,13 +45,13 @@ class PPOConfig:
     vf_coef: float = 0.5
     max_grad_norm: float = 0.5
     device: str = "auto"
-    total_timesteps: int = 200000
+    total_timesteps: int = 100000
     tensorboard_log: str = "./logs/"
 
 
 @dataclass(frozen=True)
 class EnvironmentConfig:
-    max_heroes: int = 10
+    max_heroes: int = 20
 
 
 @dataclass(frozen=True)

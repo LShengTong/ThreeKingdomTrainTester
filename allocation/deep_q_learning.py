@@ -15,7 +15,6 @@ class DeepQLearningAgent:
         self.config = config or DEFAULT_AGENT_CONFIG
         Environment.max_heroes = self.config.environment.max_heroes
         self.gamma = self.config.dqn.gamma
-        self.device = self.config.dqn.device
         self.train_env = AllocationGymEnv()
         policy_kwargs = dict(
             net_arch=[],
@@ -53,3 +52,7 @@ class DeepQLearningAgent:
         policy_obs = self.train_env.encode_observation(observation)
         action, _ = self.model.predict(policy_obs, deterministic=deterministic)
         return int(action)
+
+    @property
+    def device(self) -> torch.device:
+        return self.model.device

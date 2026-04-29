@@ -12,25 +12,25 @@ class NetworkConfig:
     work_phi_hidden: tuple[int, ...] = ()
     work_phi_out: int = 4
     work_rho_hidden: tuple[int, ...] = ()
-    fusion_hidden_dims: tuple[int, ...] = (256, 256)
+    fusion_hidden_dims: tuple[int, ...] = (128, 128)
     activation: str = "relu"
 
 
 @dataclass(frozen=True)
 class DQNConfig:
     gamma: float = 0.99
-    lr: float = 1e-3
+    lr: float = 1e-4
     batch_size: int = 64
     replay_capacity: int = 10000
-    learning_starts: int = 64
+    learning_starts: int = 2000
     train_freq: int = 1
     gradient_steps: int = 1
-    target_update_interval: int = 100
+    target_update_interval: int = 1000
     exploration_initial_eps: float = 1.0
     exploration_final_eps: float = 0.05
-    exploration_fraction: float = 0.7
+    exploration_fraction: float = 0.1
     device: str = "auto"
-    total_timesteps: int = 10000
+    total_timesteps: int = 20000
 
 
 @dataclass(frozen=True)
@@ -51,12 +51,12 @@ class PPOConfig:
 
 @dataclass(frozen=True)
 class EnvironmentConfig:
-    max_heroes: int = 20
+    max_heroes: int = 10
 
 
 @dataclass(frozen=True)
 class AllocationAgentConfig:
-    algorithm: Literal["dqn", "ppo"] = "ppo"
+    algorithm: Literal["dqn", "ppo"] = "dqn"
     network: NetworkConfig = field(default_factory=NetworkConfig)
     dqn: DQNConfig = field(default_factory=DQNConfig)
     ppo: PPOConfig = field(default_factory=PPOConfig)

@@ -16,9 +16,12 @@ class TrainableAgent(Protocol):
 
     def act(self, observation: Any, deterministic: bool = True) -> int: ...
 
+    @property
+    def device(self) -> torch.device: ...
+
 
 class Tester:
-    def __init__(self, agent: TrainableAgent):
+    def __init__(self, agent: TrainableAgent) -> None:
         self.agent = agent
 
     def test(self):
@@ -31,7 +34,7 @@ class Tester:
             bias_calculator = BiasCalculator(
                 gamma=self.agent.gamma,
                 policy=self.agent.model.policy,
-                device=torch.device("cpu"),
+                device=self.agent.device,
             )
 
         random_rewards = 0

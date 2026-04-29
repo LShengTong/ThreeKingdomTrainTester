@@ -17,13 +17,11 @@ class NetObservations:
         todo_heroes = np.stack([o.todo_heroes for o in net_obs], axis=0)
         todo_hero_masks = np.stack([o.todo_hero_mask for o in net_obs], axis=0)
         develops = np.stack([o.develops for o in net_obs], axis=0)
-        curr_heroes = np.stack([o.curr_hero for o in net_obs], axis=0)
         working_heroes = np.stack([o.working_heroes for o in net_obs], axis=0)
         return cls(
             todo_heroes=torch.from_numpy(todo_heroes).to(device),
             todo_hero_mask=torch.from_numpy(todo_hero_masks).to(device),
             develops=torch.from_numpy(develops).to(device),
-            curr_hero=torch.from_numpy(curr_heroes).to(device),
             working_heroes=torch.from_numpy(working_heroes).to(device),
         )
 
@@ -32,13 +30,11 @@ class NetObservations:
             todo_heroes: torch.Tensor,
             todo_hero_mask: torch.Tensor,
             develops: torch.Tensor,
-            curr_hero: torch.Tensor,
             working_heroes: torch.Tensor,
     ) -> None:
         self.todo_heroes = todo_heroes
         self.todo_hero_mask = todo_hero_mask
         self.develops = develops
-        self.curr_hero = curr_hero
         self.working_heroes = working_heroes
 
     def to_dict(self):
@@ -46,7 +42,6 @@ class NetObservations:
             "todo_heroes": self.todo_heroes,
             "todo_hero_mask": self.todo_hero_mask,
             "develops": self.develops,
-            "curr_hero": self.curr_hero,
             "working_heroes": self.working_heroes,
         }
 
@@ -57,13 +52,11 @@ class NetObservation:
             todo_heroes: np.ndarray,
             todo_hero_mask: np.ndarray,
             develops: np.ndarray,
-            curr_hero: np.ndarray,
             working_heroes: np.ndarray,
     ) -> None:
         self.todo_heroes = todo_heroes
         self.todo_hero_mask = todo_hero_mask
         self.develops = develops
-        self.curr_hero = curr_hero
         self.working_heroes = working_heroes
 
     def to_dict(self):
@@ -71,7 +64,6 @@ class NetObservation:
             "todo_heroes": self.todo_heroes,
             "todo_hero_mask": self.todo_hero_mask,
             "develops": self.develops,
-            "curr_hero": self.curr_hero,
             "working_heroes": self.working_heroes,
         }
 
@@ -108,11 +100,11 @@ class NetObservation:
             if develop_index < 0:
                 continue
             working_heroes[develop_index, 0] += heroes[i, develop_index % 4]
+        working_heroes += curr_hero
 
         return NetObservation(
             todo_heroes=np.asarray(todo_heroes, dtype=np.float32),
             todo_hero_mask=np.asarray(todo_hero_mask, dtype=np.float32),
             develops=np.asarray(develops, dtype=np.float32),
-            curr_hero=np.asarray(curr_hero, dtype=np.float32),
             working_heroes=np.asarray(working_heroes, dtype=np.float32),
         )

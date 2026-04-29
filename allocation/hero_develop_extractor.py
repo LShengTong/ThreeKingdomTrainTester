@@ -24,8 +24,6 @@ class HeroDevelopExtractor(BaseFeaturesExtractor):
             todo_heroes=observations["todo_heroes"],
             todo_hero_mask=observations["todo_hero_mask"],
             develops=observations["develops"],
-            curr_hero=observations["curr_hero"],
             working_heroes=observations["working_heroes"],
-            # working_heroes_mask=observations["working_heroes_mask"],
         )
         return self.hero_develop_net(net_obs)

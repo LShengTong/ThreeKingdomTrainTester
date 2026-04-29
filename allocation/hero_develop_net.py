@@ -47,9 +47,8 @@ class HeroDevelopNet(nn.Module):
         shape = (obs.todo_heroes.shape[0], obs.develops.shape[1])
         heroes_pool = self.hero_deepset.forward(obs.todo_heroes, obs.todo_hero_mask)
         heroes_pool = heroes_pool.unsqueeze(1).repeat(1, obs.develops.shape[1], 1)
-        working_heroes_pool = obs.working_heroes + obs.curr_hero
         fusion_in = torch.cat(
-            [heroes_pool, obs.develops, working_heroes_pool], dim=-1)
+            [heroes_pool, obs.develops, obs.working_heroes], dim=-1)
 
         flat = fusion_in.reshape(shape[0] * shape[1], -1)
         out = self.fusion(flat).view(shape[0], shape[1])

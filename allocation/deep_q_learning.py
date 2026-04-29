@@ -38,6 +38,7 @@ class DeepQLearningAgent:
             exploration_fraction=self.config.dqn.exploration_fraction,
             device=self.config.dqn.device,
             policy_kwargs=policy_kwargs,
+            tensorboard_log=self.config.dqn.tensorboard_log,
             verbose=1,
         )
 

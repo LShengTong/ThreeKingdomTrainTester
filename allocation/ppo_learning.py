@@ -37,6 +37,7 @@ class ProximalPolicyOptimizationAgent:
             max_grad_norm=self.config.ppo.max_grad_norm,
             device=self.config.ppo.device,
             policy_kwargs=policy_kwargs,
+            tensorboard_log=self.config.ppo.tensorboard_log,
             verbose=1,
         )
 

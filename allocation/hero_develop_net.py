@@ -24,22 +24,13 @@ class HeroDevelopNet(nn.Module):
         self.hero_deepset = DeepSetEncoder(
             element_dim=hero_feature_dim,
             phi_hidden_dims=network_config.hero_phi_hidden,
-            rho_hidden_dims=network_config.hero_rho_hidden,
             phi_out_dim=network_config.hero_phi_out,
-            out_dim=hero_feature_dim,
+            rho_hidden_dims=network_config.hero_rho_hidden,
+            out_dim=network_config.hero_rho_out,
             activation=network_config.activation,
         )
-        # self.working_deepset = DeepSetEncoder(
-        #     element_dim=1,
-        #     phi_hidden_dims=network_config.work_phi_hidden,
-        #     rho_hidden_dims=network_config.work_rho_hidden,
-        #     phi_out_dim=network_config.work_phi_out,
-        #     out_dim=1,
-        #     activation=network_config.activation,
-        # )
         self.fusion = ConfigurableMLP(
-            input_dim=hero_feature_dim +
-                      1 +
+            input_dim=network_config.hero_rho_out +
                       1 +
                       1,
             hidden_dims=network_config.fusion_hidden_dims,
@@ -56,13 +47,9 @@ class HeroDevelopNet(nn.Module):
         shape = (obs.todo_heroes.shape[0], obs.develops.shape[1])
         heroes_pool = self.hero_deepset.forward(obs.todo_heroes, obs.todo_hero_mask)
         heroes_pool = heroes_pool.unsqueeze(1).repeat(1, obs.develops.shape[1], 1)
-        # working_heroes = obs.working_heroes.reshape(-1, obs.working_heroes.shape[-2], obs.working_heroes.shape[-1])
-        # working_heroes_mask = obs.working_heroes_mask.reshape(-1, obs.working_heroes_mask.shape[-1])
-        # working_heroes_pool = self.working_deepset.forward(working_heroes, working_heroes_mask)
-        # working_heroes_pool = working_heroes_pool.reshape(shape[0], shape[1], -1)
-        working_heroes_pool = obs.working_heroes
+        working_heroes_pool = obs.working_heroes + obs.curr_hero
         fusion_in = torch.cat(
-            [heroes_pool, obs.curr_hero, obs.develops, working_heroes_pool], dim=-1)
+            [heroes_pool, obs.develops, working_heroes_pool], dim=-1)
 
         flat = fusion_in.reshape(shape[0] * shape[1], -1)
         out = self.fusion(flat).view(shape[0], shape[1])

@@ -6,9 +6,10 @@ from typing import Literal
 
 @dataclass(frozen=True)
 class NetworkConfig:
-    hero_phi_hidden: tuple[int, ...] = ()
-    hero_phi_out: int = 4
+    hero_phi_hidden: tuple[int, ...] = (64, )
+    hero_phi_out: int = 64
     hero_rho_hidden: tuple[int, ...] = ()
+    hero_rho_out:int = 16
     # work_phi_hidden: tuple[int, ...] = ()
     # work_phi_out: int = 4
     # work_rho_hidden: tuple[int, ...] = ()
@@ -21,16 +22,17 @@ class DQNConfig:
     gamma: float = 0.99
     lr: float = 1e-4
     batch_size: int = 64
-    replay_capacity: int = 10000
-    learning_starts: int = 2000
-    train_freq: int = 1
+    replay_capacity: int = 50000
+    learning_starts: int = 10000
+    train_freq: int = 4
     gradient_steps: int = 1
     target_update_interval: int = 1000
     exploration_initial_eps: float = 1.0
     exploration_final_eps: float = 0.05
     exploration_fraction: float = 0.1
     device: str = "auto"
-    total_timesteps: int = 20000
+    total_timesteps: int = 100000
+    tensorboard_log: str = "./logs/"
 
 
 @dataclass(frozen=True)
@@ -46,7 +48,8 @@ class PPOConfig:
     vf_coef: float = 0.5
     max_grad_norm: float = 0.5
     device: str = "auto"
-    total_timesteps: int = 10000
+    total_timesteps: int = 200000
+    tensorboard_log: str = "./logs/"
 
 
 @dataclass(frozen=True)
@@ -56,7 +59,7 @@ class EnvironmentConfig:
 
 @dataclass(frozen=True)
 class AllocationAgentConfig:
-    algorithm: Literal["dqn", "ppo"] = "dqn"
+    algorithm: Literal["dqn", "ppo"] = "ppo"
     network: NetworkConfig = field(default_factory=NetworkConfig)
     dqn: DQNConfig = field(default_factory=DQNConfig)
     ppo: PPOConfig = field(default_factory=PPOConfig)

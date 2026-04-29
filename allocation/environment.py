@@ -26,21 +26,26 @@ class Environment:
     def hero_count(self) -> int:
         return self._heroAbilities.shape[0]
 
-    def _do_action(self, action: np.ndarray) -> float:
-        action = action[:self._heroAbilities.shape[0]]
-        reward = 0.0
+    def _calc_develop_delta(self) -> np.ndarray:
+        develop_abilities = np.zeros((self._develops.shape[0],), dtype=np.int64)
+        for i in range(len(self._working_action)):
+            working_action = self._working_action[i]
+            if working_action < 0:
+                break
+            develop_abilities[working_action] += self._heroAbilities[i, working_action % 4]
+        develop_deltas = np.zeros_like(develop_abilities)
+        for i in range(len(develop_abilities)):
+            abilities = develop_abilities[i]
+            develop_delta = self._develops[i][1] - self._develops[i][0]
+            develop_deltas[i] = (
+                abilities / 10 + develop_delta * abilities / 3000)
+        return develop_deltas
+
+    def _do_action(self) -> float:
+        develop_deltas = self._calc_develop_delta()
         for i in range(self._develops.shape[0]):
-            hero_ids = np.where(action == i)[0]
-            if hero_ids.size == 0:
-                abilities = 0.0
-            else:
-                abilities = float(self._heroAbilities[hero_ids, i % 4].sum())
-            develop = self._develops[i]
-            develop_delta = int(abilities / 10 + (develop[1] - develop[0]) * abilities / 3000)
-            develop_delta = min(develop_delta, self._develops[i, 1] - self._develops[i, 0])
-            self._develops[i, 0] += develop_delta
-            reward += float(develop_delta)
-        return reward
+            self._develops[i, 0] += develop_deltas[i]
+        return develop_deltas.sum()
 
     def reset(self) -> Observation:
         if Environment.max_heroes == 1:
@@ -83,10 +88,12 @@ class Environment:
             first_idle_hero = int(unassigned[0])
             self._working_action[first_idle_hero] = int(develop_index)
         if int((self._working_action != -1).sum()) >= self._heroAbilities.shape[0]:
-            reward = float(self._do_action(self._working_action))
+            reward = float(self._do_action())
             self._working_action.fill(-1)
             done = True
         else:
-            reward = 0
+            ability = self._heroAbilities[int(unassigned[0]), develop_index % 4]
+            develop_delta = self._develops[develop_index][1] - self._develops[develop_index][0]
+            reward = ability / 10 + develop_delta * ability / 3000
             done = False
         return self.get_observation(), reward, done

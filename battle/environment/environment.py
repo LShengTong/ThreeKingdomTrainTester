@@ -2,11 +2,11 @@ from typing import List, Dict, Tuple
 
 import torch
 
-from battle.army import Army
-from battle.city import City
-from battle.config import Config
-from battle.i_attack import IAttack
-from battle.turn import Turn
+from battle.environment.army import Army
+from battle.environment.city import City
+from battle.environment.config import Config
+from battle.environment.i_attack import IAttack
+from battle.environment.turn import Turn
 
 
 class Environment:

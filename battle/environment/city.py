@@ -1,7 +1,7 @@
 import torch
 
-from battle.config import Config
-from battle.i_attack import IAttack
+from battle.environment.config import Config
+from battle.environment.i_attack import IAttack
 
 
 class City(IAttack):

@@ -1,94 +1,121 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
+from typing import Dict, List
 
 import torch
-import torch.nn as nn
+import torch.nn.functional as F
+from torch import nn
+from torch_geometric.data import HeteroData
+from torch_geometric.nn import GCNConv, HeteroConv
 
-from battle.army import Army
-from battle.city import City
+from battle.environment.army import Army
+from battle.environment.city import City
 
 
 @dataclass
 class GraphData:
-    node_features: torch.Tensor
-    edge_index: torch.Tensor
-
-class TreeLayer(nn.Module):
-    def __init__(self, in_features, out_features):
-        super().__init__()
-        self.W_self   = nn.Linear(in_features, out_features)
-        self.W_parent = nn.Linear(in_features, out_features)
-
-    def forward(self, h, parent):
-        return torch.relu(
-            self.W_self(h) + self.W_parent(parent)
-        )
+    data: HeteroData
+    army_id_to_index: Dict[int, int]
+    city_id_to_index: Dict[int, int]
 
 
 class BattleGCN(nn.Module):
-    def __init__(
-        self,
-        input_dim: int = 4,
-        hidden_dim: int = 64,
-        output_dim: int = 32,
-        num_layers: int = 2,
-    ):
+    """Two-layer heterogeneous GCN over Army/City nodes."""
+
+    def __init__(self, input_dim: int = 4, hidden_dim: int = 64, output_dim: int = 32):
         super().__init__()
-        if num_layers < 1:
-            raise ValueError("num_layers must be >= 1")
-
-        layers: List[GCNLayer] = []
-        dims = [input_dim] + [hidden_dim] * (num_layers - 1) + [output_dim]
-        for i in range(len(dims) - 1):
-            layers.append(GCNLayer(dims[i], dims[i + 1]))
-        self.layers = nn.ModuleList(layers)
-
-    def forward(self, node_features: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
-        h = node_features
-        for layer in self.layers:
-            h = layer(h, edge_index)
-        return h
-
-
-def build_battle_graph(
-    cities: List[City],
-    armies: List[Army],
-    attack_radius: float,
-) -> GraphData:
-    # Node feature: [x, y, soldier, is_city]
-    city_features = [
-        torch.tensor([c.get_pos()[0], c.get_pos()[1], float(c.soldier), 1.0])
-        for c in cities
-    ]
-    army_features = [
-        torch.tensor([a.get_pos()[0], a.get_pos()[1], float(a.soldier), 0.0])
-        for a in armies
-    ]
-    features = city_features + army_features
-
-    if len(features) == 0:
-        return GraphData(
-            node_features=torch.zeros((0, 4), dtype=torch.float32),
-            edge_index=torch.zeros((2, 0), dtype=torch.long),
+        self.conv1 = HeteroConv(
+            {
+                ("Army", "target_city", "City"): GCNConv(input_dim, hidden_dim, add_self_loops=False),
+                ("City", "targeted_by_army", "Army"): GCNConv(input_dim, hidden_dim, add_self_loops=False),
+                ("Army", "target_army", "Army"): GCNConv(input_dim, hidden_dim),
+            },
+            aggr="sum",
+        )
+        self.conv2 = HeteroConv(
+            {
+                ("Army", "target_city", "City"): GCNConv(hidden_dim, output_dim, add_self_loops=False),
+                ("City", "targeted_by_army", "Army"): GCNConv(hidden_dim, output_dim, add_self_loops=False),
+                ("Army", "target_army", "Army"): GCNConv(hidden_dim, output_dim),
+            },
+            aggr="sum",
         )
 
-    node_features = torch.stack(features).float()
+    def forward(self, data: HeteroData) -> torch.Tensor:
+        x_dict = {"Army": data["Army"].x, "City": data["City"].x}
+        x_dict = self.conv1(x_dict, data.edge_index_dict)
+        x_dict = {node_type: F.relu(x) for node_type, x in x_dict.items()}
+        x_dict = self.conv2(x_dict, data.edge_index_dict)
+        return x_dict["Army"]
 
-    edges = []
-    num_nodes = node_features.size(0)
-    for i in range(num_nodes):
-        for j in range(num_nodes):
-            if i == j:
+
+def build_battle_graph(cities: List[City], armies: List[Army]) -> GraphData:
+    data = HeteroData()
+
+    city_id_to_index = {city.get_city_id(): idx for idx, city in enumerate(cities)}
+    army_id_to_index = {army.army_id: idx for idx, army in enumerate(armies)}
+
+    city_features = [
+        [float(city.get_pos()[0]), float(city.get_pos()[1]), float(city.soldier), 1.0]
+        for city in cities
+    ]
+    army_features = [
+        [float(army.get_pos()[0]), float(army.get_pos()[1]), float(army.soldier), 0.0]
+        for army in armies
+    ]
+
+    data["City"].x = (
+        torch.tensor(city_features, dtype=torch.float32)
+        if city_features
+        else torch.zeros((0, 4), dtype=torch.float32)
+    )
+    data["Army"].x = (
+        torch.tensor(army_features, dtype=torch.float32)
+        if army_features
+        else torch.zeros((0, 4), dtype=torch.float32)
+    )
+
+    army_to_city_edges: List[List[int]] = []
+    city_to_army_edges: List[List[int]] = []
+    army_to_army_edges: List[List[int]] = []
+
+    for src_army in armies:
+        src_idx = army_id_to_index[src_army.army_id]
+        target = src_army.target
+
+        if isinstance(target, City):
+            city_idx = city_id_to_index.get(target.get_city_id())
+            if city_idx is None:
                 continue
-            dist = torch.dist(node_features[i, :2], node_features[j, :2]).item()
-            if dist <= attack_radius:
-                edges.append((i, j))
+            army_to_city_edges.append([src_idx, city_idx])
+            city_to_army_edges.append([city_idx, src_idx])
+            continue
 
-    if len(edges) == 0:
-        edge_index = torch.zeros((2, 0), dtype=torch.long)
-    else:
-        edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
+        if isinstance(target, Army):
+            dst_idx = army_id_to_index.get(target.army_id)
+            if dst_idx is None:
+                continue
+            army_to_army_edges.append([src_idx, dst_idx])
 
-    return GraphData(node_features=node_features, edge_index=edge_index)
+    data["Army", "target_city", "City"].edge_index = (
+        torch.tensor(army_to_city_edges, dtype=torch.long).t().contiguous()
+        if army_to_city_edges
+        else torch.zeros((2, 0), dtype=torch.long)
+    )
+    data["City", "targeted_by_army", "Army"].edge_index = (
+        torch.tensor(city_to_army_edges, dtype=torch.long).t().contiguous()
+        if city_to_army_edges
+        else torch.zeros((2, 0), dtype=torch.long)
+    )
+    data["Army", "target_army", "Army"].edge_index = (
+        torch.tensor(army_to_army_edges, dtype=torch.long).t().contiguous()
+        if army_to_army_edges
+        else torch.zeros((2, 0), dtype=torch.long)
+    )
+
+    return GraphData(
+        data=data,
+        army_id_to_index=army_id_to_index,
+        city_id_to_index=city_id_to_index,
+    )

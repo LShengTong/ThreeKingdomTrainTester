@@ -1,8 +1,8 @@
 import torch
 
-from battle.city import City
-from battle.config import Config
-from battle.i_attack import IAttack
+from battle.environment.city import City
+from battle.environment.config import Config
+from battle.environment.i_attack import IAttack
 
 
 class Army(IAttack):

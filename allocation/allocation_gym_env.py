@@ -36,6 +36,12 @@ class AllocationGymEnv(Env[dict[str, np.ndarray], int]):
                     shape=(Environment.develop_shape[0], 1),
                     dtype=np.float32,
                 ),
+                "curr_hero": spaces.Box(
+                    low=0.0,
+                    high=1.0,
+                    shape=(Environment.hero_dim,),
+                    dtype=np.float32,
+                ),
                 "working_heroes": spaces.Box(
                     low=0.0,
                     high=1.0,

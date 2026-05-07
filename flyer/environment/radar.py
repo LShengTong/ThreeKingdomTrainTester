@@ -2,9 +2,8 @@ from typing import Dict
 
 import numpy as np
 
-from flyer.config import flyer_configs
-from flyer.flyer import Flyer
-from flyer.flyer_type import FlyerType
+from flyer.environment.flyer import Flyer
+from flyer.environment.flyer_type import FlyerType
 
 
 class Radar:
@@ -18,5 +17,9 @@ class Radar:
                 if type_i == type_j:
                      continue
                 distance = flyer_i.position - flyer_j.position
-                if np.linalg.norm(distance) < flyer_configs[type_i].radar_radius:
+                if flyer_i.config is None:
+                    raise Exception("radar system find flyer do not has config")
+                if np.linalg.norm(distance) < flyer_i.config.radar_radius:
                     flyer_i.target_found(flyer_j)
+                else:
+                    flyer_i.target_found(None)

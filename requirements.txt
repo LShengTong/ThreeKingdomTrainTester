@@ -4,3 +4,10 @@ gymnasium
 stable-baselines3
 tensorboard
 torch-geometric
+matplotlib
+
+# Ray RLlib for distributed training
+ray[rllib]>=2.9.0
+
+# Optional: Ray Tune for hyperparameter optimization
+ray[tune]>=2.9.0

@@ -3,7 +3,7 @@ from typing import Iterable
 import torch
 from torch import nn
 
-from allocation.configurable_mlp import ConfigurableMLP
+from common.configurable_mlp import ConfigurableMLP
 
 
 class DeepSetEncoder(nn.Module):

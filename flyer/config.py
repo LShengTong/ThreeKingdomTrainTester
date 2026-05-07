@@ -1,55 +1,29 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Dict
+from typing import Tuple
 
-import numpy as np
-
-from flyer.flyer_type import FlyerType
 
 @dataclass(frozen=True)
-class EnvConfig:
-    delta_time = 1
+class NetConfig:
+    self_info_hidden_dims: Tuple[int, ...] = (32,)
+    self_info_feature_dim: int = 32
+    has_target_hidden_dims: Tuple[int, ...] = (32,)
+    no_target_hidden_dims: Tuple[int, ...] = (32,)
+    feature_out_dim: int = 32
+    arch: Tuple[int, ...] = (64, 64)
 
-
-@dataclass
-class FlyerConfig:
-    max_attack_distance: float # km
-    max_attack_angle_degree: float
-    radar_radius: float # km
-    min_velocity: float # km/s
-    max_velocity: float # km/s
-    velocity: float # km/s
-    position: np.ndarray
-    angle: np.ndarray
-    missile_count: int
-    max_angle_change_velocity: float # degree/s
-    max_accelerate: float # km/s^2
-
-flyer_configs: Dict[FlyerType, FlyerConfig] = {
-    FlyerType.RED: FlyerConfig(
-        max_attack_distance = 50,
-        max_attack_angle_degree = 20,
-        radar_radius = 150,
-        min_velocity = 0.06,
-        max_velocity = 0.3,
-        velocity = 0.2,
-        position = np.array([-100., -100.]),
-        angle = np.array([1., 1.]),
-        missile_count = 3,
-        max_angle_change_velocity = 20,
-        max_accelerate = 0.02
-    ),
-    FlyerType.GREEN: FlyerConfig(
-        max_attack_distance=50,
-        max_attack_angle_degree=20,
-        radar_radius=150,
-        min_velocity=0.06,
-        max_velocity=0.3,
-        velocity=0.2,
-        position=np.array([100., 100.]),
-        angle=np.array([-1., -1.]),
-        missile_count=3,
-        max_angle_change_velocity=20,
-        max_accelerate=0.02
-    )
-}
-
+@dataclass(frozen=True)
+class FlyerPPOConfig:
+    gamma: float = 0.99
+    lr: float = 1e-4
+    n_steps: int = 2048
+    batch_size: int = 64
+    n_epochs: int = 10
+    gae_lambda: float = 0.95
+    clip_range: float = 0.2
+    ent_coef: float = 0.0
+    vf_coef: float = 0.5
+    max_grad_norm: float = 0.3
+    device: str = "auto"
+    tensorboard_log: str = "./logs/flyer_ppo"

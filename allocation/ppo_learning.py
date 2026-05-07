@@ -19,7 +19,7 @@ class ProximalPolicyOptimizationAgent:
         self.device = self.config.ppo.device
         self.train_env = AllocationGymEnv()
         policy_kwargs = dict(
-            net_arch=[],
+            net_arch=self.config.ppo.arch,
             features_extractor_class=HeroDevelopExtractor,
         )
         self.model = PPO(

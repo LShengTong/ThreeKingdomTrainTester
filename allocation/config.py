@@ -10,7 +10,6 @@ class NetworkConfig:
     hero_phi_out: int = 64
     hero_rho_hidden: tuple[int, ...] = ()
     hero_rho_out:int = 16
-    fusion_hidden_dims: tuple[int, ...] = (128, 128)
     activation: str = "relu"
 
 
@@ -29,6 +28,7 @@ class DQNConfig:
     exploration_fraction: float = 0.1
     device: str = "auto"
     total_timesteps: int = 100000
+    arch = [64, 64]
     tensorboard_log: str = "./logs/"
 
 
@@ -46,6 +46,7 @@ class PPOConfig:
     max_grad_norm: float = 0.5
     device: str = "auto"
     total_timesteps: int = 100000
+    arch = [64, 64]
     tensorboard_log: str = "./logs/"
 
 
@@ -56,7 +57,7 @@ class EnvironmentConfig:
 
 @dataclass(frozen=True)
 class AllocationAgentConfig:
-    algorithm: Literal["dqn", "ppo"] = "ppo"
+    algorithm: Literal["dqn", "ppo"] = "dqn"
     network: NetworkConfig = field(default_factory=NetworkConfig)
     dqn: DQNConfig = field(default_factory=DQNConfig)
     ppo: PPOConfig = field(default_factory=PPOConfig)

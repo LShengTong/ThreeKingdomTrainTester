@@ -4,7 +4,6 @@ from torch import nn
 from allocation.config import NetworkConfig
 from allocation.environment import Environment
 from allocation.net_observation import NetObservations
-from allocation.configurable_mlp import ConfigurableMLP
 from allocation.deep_set_encoder import DeepSetEncoder
 
 
@@ -29,14 +28,6 @@ class HeroDevelopNet(nn.Module):
             out_dim=network_config.hero_rho_out,
             activation=network_config.activation,
         )
-        self.fusion = ConfigurableMLP(
-            input_dim=network_config.hero_rho_out +
-                      1 +
-                      1,
-            hidden_dims=network_config.fusion_hidden_dims,
-            output_dim=1,
-            activation=network_config.activation,
-        )
         self.num_develops = num_develops
         self.hero_feature_dim = hero_feature_dim
 
@@ -44,12 +35,11 @@ class HeroDevelopNet(nn.Module):
         self,
         obs: NetObservations,
     ) -> torch.Tensor:
-        shape = (obs.todo_heroes.shape[0], obs.develops.shape[1])
+        batch = obs.curr_hero.shape[0]
         heroes_pool = self.hero_deepset.forward(obs.todo_heroes, obs.todo_hero_mask)
-        heroes_pool = heroes_pool.unsqueeze(1).repeat(1, obs.develops.shape[1], 1)
-        fusion_in = torch.cat(
-            [heroes_pool, obs.develops, obs.working_heroes], dim=-1)
-
-        flat = fusion_in.reshape(shape[0] * shape[1], -1)
-        out = self.fusion(flat).view(shape[0], shape[1])
-        return out
+        return torch.cat([
+            heroes_pool.reshape(batch, -1),
+            obs.develops.reshape(batch, -1),
+            obs.curr_hero.reshape(batch, -1),
+            obs.working_heroes.reshape(batch, -1),
+        ], dim=-1)

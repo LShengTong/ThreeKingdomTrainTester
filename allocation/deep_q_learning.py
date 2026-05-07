@@ -18,7 +18,7 @@ class DeepQLearningAgent:
         self.gamma = self.config.dqn.gamma
         self.train_env = AllocationGymEnv()
         policy_kwargs = dict(
-            net_arch=[],
+            net_arch=self.config.dqn.arch,
             features_extractor_class=HeroDevelopExtractor,
         )
         self.model = DQN(
